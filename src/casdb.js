@@ -1,3 +1,4 @@
+
 var Collection = require('./collection.js');
 var Emitter = require('eventemitter3');
 var fstorm = require('fstorm');
