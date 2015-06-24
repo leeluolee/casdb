@@ -5,7 +5,6 @@ var fstorm = require('fstorm');
 var path = require('path');
 var helper = require('./helper');
 var util = require('util');
-var i = require('i');
 var fs = require('fs');
 
 
