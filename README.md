@@ -1,4 +1,5 @@
-# Casdb
+# Casdb 
+[![Build Status](https://travis-ci.org/leeluolee/casdb.svg?branch=master)](https://travis-ci.org/leeluolee/casdb)
 
 Stupid datastore for data mocking.
 
