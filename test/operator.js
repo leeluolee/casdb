@@ -3,6 +3,8 @@ var operator = require('../src/operator.js');
 var projection = operator.projection;
 var expect = require('expect.js')
 var query = operator.queries;
+var projection = operator.projection;
+var update = operator.update;
 
 
 describe("Operator", function(){
@@ -92,23 +94,88 @@ describe("Operator", function(){
     it('Logic $nor should work as expect', function(){
        
       expect( query.$nor([{$gt: 1}, { $lt: 4 }])( 6) ).to.equal(false)
-      expect( query.$nor([{$gt: 1}, { $lt: 4 }])( 3) ).to.equal(true)
+      expect( query.$nor([{$gt: 1}, { $lt: 4 }])( 3) ).to.equal(false)
+      expect( query.$nor([{$gt: 7}, { $lt: 4 }])( 6) ).to.equal(true)
     })
     it('Logic $not should work as expect', function(){
        
-      expect( query.$not({$gt: 1})( 6) ).to.equal(false)
-      expect( query.$not([{$gt: 1}, { $lt: 4 }])( 3) ).to.equal(true)
+      expect( query.$not({$gt: 1})(6) ).to.equal(false)
+      expect( query.$not([{$gt: 1}, {$lt: 4 }])(3) ).to.equal(true)
+
     })
 
-    it('Logic not and or ', function(){
-      
-    })
 
     it("$comment should do nothing", function(){
 
       expect( query.$comment('This is a comment')(false)).to.equal(true)
       expect( query.$comment('This is a comment too')(true)).to.equal(true)
 
+    })
+
+  })
+
+  describe("Operator.projection", function(){
+
+    it("Array $elemMatch", function(){
+      expect(projection.$elemMatch( { $gt: 0 } )([1,2,3,4,-1])).to.eql( [1,2,3,4])
+    })
+
+    it("Array $elemMatch", function(){
+      expect(projection.$elemMatch( { $gt: 0 } )([1,2,3,4,-1])).to.eql( [1,2,3,4])
+    })
+
+    it("Array $slice", function(){
+      expect(projection.$slice(2)([1,2,3,4,-1])).to.eql([1,2])
+      expect(projection.$slice(-3)([1,2,3,4,-1])).to.eql([3,4,-1])
+      expect(projection.$slice([-3, 2])([1,2,3,4,-1])).to.eql([3,4])
+      expect(projection.$slice([3, 2])([1,2,3,4,-1])).to.eql([4,-1])
+    })
+  })
+
+  describe("Operator.update", function(){
+
+    it("$set simple", function(){
+      var obj = {name: 100, age:10}
+      update.$set({name: 200})(obj)
+      expect( obj.name ).to.equal(200);
+      expect( obj.age ).to.equal( 10);
+
+    })
+    it("$set depth", function(){
+
+      var obj = {name: 100, age:10, family: {parent: 'job', mother: 'lily', children: { first: 'dabao' }}}
+      update.$set({'family.parent': 'zhenghaibo'})(obj)
+      expect( obj.family.parent ).to.equal('zhenghaibo');
+      update.$set({'family.children.first': 'erbao'})(obj)
+      expect( obj.family.children.first ).to.equal( 'erbao');
+      expect( obj.family.mother ).to.equal('lily');
+    })
+    it("$set array", function(){
+
+      var obj = { name: 'leeluolee', children: [{age:1, name:'铁蛋'}, {age:1, name: '铃铛'}] }
+
+      update.$set({'children.0': {age:2, name: 'tiedan'}} )(obj)
+      expect(obj.children[0]).to.eql({age:2, name: 'tiedan'})
+
+      update.$set({ 'children.1.name': 'lingdang' } )(obj)
+      expect( obj.children[1].name ).to.equal('lingdang')
+
+    })
+    it("$unset simple, depth, array", function(){
+      var obj = {name: 100, age:10, family: {mother: 'lily'}}
+      update.$unset({name: ''})(obj)
+      expect( obj.name ).to.equal(undefined);
+      expect( obj.age ).to.equal( 10);
+      update.$unset({'family.mother': ''})(obj)
+      expect(obj.family.mother).to.equal(undefined);
+    })
+    it("$inc simple, depth, array", function(){
+      var obj = {name: 100, age:10, family: {mother: 'lily'}}
+      update.$unset({name: ''})(obj)
+      expect( obj.name ).to.equal(undefined);
+      expect( obj.age ).to.equal( 10);
+      update.$unset({'family.mother': ''})(obj)
+      expect(obj.family.mother).to.equal(undefined);
     })
 
   })

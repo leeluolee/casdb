@@ -70,6 +70,39 @@ var buildAccessor = exports.buildAccessor =  function(field){
   }
 }
 
+var buildUpdate = exports.buildUpdator = function(expression){
+  return function(host){
+    for(var i in expression){
+
+    }
+  }
+}
+
+function assignObject(assignment, unset){
+  return function(host){
+    for(var i in assignment){
+      assignField( host,  i , assignment[i], unset );
+    }
+  }
+}
+
+function assignField(host, key, value, unset){
+
+  if( ~key.indexOf('.') ){
+    var pathes = key.split('.');
+    var len = pathes.length;
+    for(var i = 0; i < len-1 ; i++){
+      host = host[ pathes[i] ];
+    }
+    key = pathes[len-1];
+  }
+  if(unset){
+    delete host[key]
+  }else{
+    host[key] = value
+  }
+}
+
 var queries = exports.queries = {
   "$eq": function(value, type){
 
@@ -143,7 +176,7 @@ var queries = exports.queries = {
   // Evaluation
   // --------
   "$regexp":function( value){
-    if(typeof value === 'string') value = new Regexp( value );
+    if(typeof value === 'string') value = new RegExp( value );
     return function( item ){
       return value.test( item );
     }
@@ -161,6 +194,10 @@ var queries = exports.queries = {
       return item % value[0] === value[1]
     }
   },
+  "$text": function(){
+    //@TODO....
+  },
+
   // Array
   // ----------
   "$elemMatch":function( value){
@@ -175,7 +212,9 @@ var queries = exports.queries = {
       return (item && item.length) ===value;
     }
   },
+  "$all": function( value ){
 
+  },
 
   // Mocking Text
   // -------------
@@ -194,6 +233,7 @@ var queries = exports.queries = {
 
   // Logic
   // -------------
+
   "$or":function( expressions){
     var builds = buildQueryList(expressions);
     return function(item){
@@ -212,7 +252,7 @@ var queries = exports.queries = {
   },
   "$not": function( expression ){
     var filter;
-    if( expression instanceof Regexp){
+    if( expression instanceof RegExp){
       return function(item){
         return !expression.test( item )
       }
@@ -223,21 +263,19 @@ var queries = exports.queries = {
       }
     }
   },
-  "$nor": function( expression ){
-    var filter;
-    if( expression instanceof Regexp){
-      return function(item){
-        return !expression.test( item )
-      }
-    }else{
-      filter =  buildQueries(expression);
-      return function(item){
-        return !filter(item)
-      }
+  "$nor": function( expressions ){
+    var builds = buildQueryList(expressions);
+
+    return function(item){
+      return builds.every(function(build){
+        return !build(item);
+      })
     }
   },
+
   // Others
   // -----------
+
   "$comment": function(){
     return isTrue;
   }
@@ -246,4 +284,63 @@ var queries = exports.queries = {
 
 
 
-var projection = exports.projection = { }
+var projection = exports.projection = {
+  "$elemMatch": function(value){
+    var filter = buildQueries(value)
+    return function(list){
+      return list.filter(filter);
+    }
+    
+  },
+  "$slice": function(action){
+    var isArray = Array.isArray(action);
+    return function(list){
+      if(!isArray){
+        return action > 0? list.slice(0, action): list.slice(action)
+      }else{
+        var skip = action[0];
+        var limit = action[1];
+        return  list.slice( skip , skip+limit  )
+      }
+    }
+  }
+}
+
+
+var update = exports.update = {
+  "$set": function(value){
+    return assignObject(value);
+  },
+  "$unset": function(value){
+    return assignObject(value, true)
+  },
+  "$inc": function(){
+
+  },
+  "$mul": function(){
+
+  },
+  "$rename": function(){
+
+  },
+  "$min": function(){
+
+  },
+  "$max": function(){
+
+  },
+  "$currentDate": function(){
+
+  },
+  // Array
+  // ----------
+  '$addToSet': function(){
+
+  },
+  '$pop': function(){},
+  '$pullAll': function(){},
+  '$pull': function(){},
+  '$pushAll': function(){},
+  '$push': function(){},
+
+}
