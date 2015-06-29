@@ -2,7 +2,7 @@
 var helper = require('./helper');
 var npself = function(item) {return item}
 var isTrue = function() {return true}
-var isFalse = function() {return false}
+// var isFalse = function() {return false}
 
 
 
@@ -47,12 +47,10 @@ var buildQuery = exports.buildQuery = function(field, value){
 
   if(vtype === 'object') return exports.buildQueries(value, accessor);
 
-  else{
-    var equal = queries.$eq(value, vtype);
-    return function(item){
-      item = accessor(item);
-      return equal(item)
-    }
+  var equal = queries.$eq(value, vtype);
+  return function(item){
+    item = accessor(item);
+    return equal(item)
   }
 }
 
@@ -60,48 +58,17 @@ var buildQuery = exports.buildQuery = function(field, value){
 
 var buildAccessor = exports.buildAccessor =  function(field){
 
+  var len = field.length;
+  if(len === 1) return function(item){ return item[field]}
   return function(item){
-
-    for(var i = 0, len = field.length; i < len ; i++){
+    for(var i = 0;  i < len ; i++){
       item = item == undefined? undefined:  item[field[i]];
     }
-
     return item;
   }
 }
 
-var buildUpdate = exports.buildUpdator = function(expression){
-  return function(host){
-    for(var i in expression){
 
-    }
-  }
-}
-
-function assignObject(assignment, unset){
-  return function(host){
-    for(var i in assignment){
-      assignField( host,  i , assignment[i], unset );
-    }
-  }
-}
-
-function assignField(host, key, value, unset){
-
-  if( ~key.indexOf('.') ){
-    var pathes = key.split('.');
-    var len = pathes.length;
-    for(var i = 0; i < len-1 ; i++){
-      host = host[ pathes[i] ];
-    }
-    key = pathes[len-1];
-  }
-  if(unset){
-    delete host[key]
-  }else{
-    host[key] = value
-  }
-}
 
 var queries = exports.queries = {
   "$eq": function(value, type){
@@ -121,14 +88,14 @@ var queries = exports.queries = {
             return  item === value;
           }
         }
-        break;
+      case 'regexp': 
+        return function( item ){
+          return value.test(item);
+        }
       default: 
         return function( item ){
           return helper.deepEqual(item, value);
         }
-    }
-    return function(item){
-      return helper.deepEqual(value, item)
     }
   }, 
   "$lt": function(value){
@@ -194,9 +161,9 @@ var queries = exports.queries = {
       return item % value[0] === value[1]
     }
   },
-  "$text": function(){
-    //@TODO....
-  },
+  // "$text": function(){
+  //   //@TODO....
+  // },
 
   // Array
   // ----------
@@ -212,24 +179,24 @@ var queries = exports.queries = {
       return (item && item.length) ===value;
     }
   },
-  "$all": function( value ){
+  // "$all": function( value ){
 
-  },
+  // },
 
   // Mocking Text
   // -------------
-  "$texting": function(value){
-    return function(item){
-      var type = typeof(item);
-      if(type === 'string') return item.indexOf(value) !== -1
-      if(type === 'object'){
-        for(var i in item){
-          if(typeof item[i] === 'string' && item[i].indexOf(value) !== -1) return true;
-        }
-      }
-      return false
-    }
-  },
+  // "$texting": function(value){
+  //   return function(item){
+  //     var type = typeof(item);
+  //     if(type === 'string') return item.indexOf(value) !== -1
+  //     if(type === 'object'){
+  //       for(var i in item){
+  //         if(typeof item[i] === 'string' && item[i].indexOf(value) !== -1) return true;
+  //       }
+  //     }
+  //     return false
+  //   }
+  // },
 
   // Logic
   // -------------
@@ -306,41 +273,136 @@ var projection = exports.projection = {
   }
 }
 
+// // Array modify
+// var modify = exports.modify = {
+//   "$each": function(array){
+//     return function(value){
+//       return value.push.apply(value, array);
+//     }
+//   },
+//   "$sort": function(obj){
+//     var keys= obj && Object.keys(obj)
+//     var key = keys[0];
+//     return function(){
+//       return function(){
 
-var update = exports.update = {
-  "$set": function(value){
-    return assignObject(value);
-  },
-  "$unset": function(value){
-    return assignObject(value, true)
-  },
-  "$inc": function(){
+//       }
+//     }
+//   }
+// }
 
-  },
-  "$mul": function(){
 
-  },
-  "$rename": function(){
 
+var assignment = {
+  // Basic
+  assign: function(obj, key, fn){
+    return fn(obj, key);
   },
-  "$min": function(){
-
+  unset: function(obj, key, value){
+    // @TODO: use delete ?
+    obj[key] = undefined;
   },
-  "$max": function(){
-
+  set: function(obj, key, value){
+    obj[key] = value;
   },
-  "$currentDate": function(){
-
+  inc: function(obj, key, value){
+    obj[key] += value;
+  },
+  mul: function(obj, key, value){
+    obj[key] *= value;
+  },
+  rename: function(obj, key, value){
+    obj[value] = obj[key];
+    obj[key] = undefined;
+  },
+  min: function( obj, key, value ){
+    if(obj[key] > value) obj[key] = value;
+  },
+  max: function( obj, key ,value ){
+    if(obj[key] < value) obj[key] = value;
   },
   // Array
-  // ----------
-  '$addToSet': function(){
+  pop: function( obj, key ,value ){
+    var list = obj[key];
+    if(value === -1) list.shift();
+    if(value === 1) list.pop();
+  },
+  push: function( obj, key ,value ){
+    if(helper.hasExpr(value)){
+      var each, sort, slice, position;
+      var list = obj[key];
+      if((each = value.$each) && Array.isArray(each)){
+        each.forEach(function(item){
+          list.push(item);
+        })
+      }
+      if(slice = value.$slice){
+        var sliceFn = projection.$slice(slice);
+        list = obj[key]= sliceFn(list);
+      }
+      if(sort = value.$sort){
+        var fn = typeof sort === 'function'? sort: function(a, b){
+          return sort > 0 ? a-b: b-a;
+        }
+        list.sort(fn)
+      }
+    }else{
+      var list = obj[key];
+      list.push( value );
+    }
+  },
+  pushAll: function(){
 
   },
-  '$pop': function(){},
-  '$pullAll': function(){},
-  '$pull': function(){},
-  '$pushAll': function(){},
-  '$push': function(){},
+  pull : function(obj, key, query){
+    var filter = !helper.hasExpr(query)? function(item){
+        return helper.deepEqual(item, query)
+      }: buildQueries(query)
 
+    obj[key] = obj[key].filter(function(item){
+      return !filter(item)
+    })
+  },
+  pullAll : function(obj, key, query){
+    if(Array.isArray(query)){
+      obj[key] = obj[key].filter(function(item){
+        return !~query.indexOf(item)
+      })
+    }
+  }
 }
+
+
+
+
+function assignObject(assignment, unset){
+  return function(host){
+    for(var i in assignment){
+      assignField( host,  i , assignment[i], unset );
+    }
+  }
+}
+
+function assignField(host, key, value, operation){
+
+  if( ~key.indexOf('.') ){
+    var pathes = key.split('.');
+    var len = pathes.length;
+    for(var i = 0; i < len-1 ; i++){
+      host = host[ pathes[i] ];
+    }
+    key = pathes[len-1];
+  }
+  if(operation){
+    operation(host, key, value)
+  }else{
+    host[key] = value;
+  }
+}
+var update = exports.update = { } 
+// dynamic generate
+Object.keys(assignment).forEach(function(item){
+  update["$" + item] = function(expression){
+    return assignObject(expression, assignment[item])
+  }
+})

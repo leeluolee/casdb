@@ -13,6 +13,15 @@ var helper = module.exports = {
   typeOf: function( o ){
     return o == null ? String(o) : o2str.call(o).slice(8, -1).toLowerCase();
   },
+  hasExpr: function(obj){
+    try{
+      return Object.keys(obj).some(function(item){
+        return item.indexOf('$') === 0
+      })
+    }catch(e){
+      return false;
+    }
+  },
   deepClone: function(src){
     var type = helper.typeOf(src);
     var dest;
@@ -73,16 +82,19 @@ var helper = module.exports = {
     }
     return true;
   },
+  getSort : function( sign ){
+    return typeof sign === 'function'? sign: 
+      (sign > 0? function(a, b){ return a-b}: function(a, b){ return b-a})
+  },
+  compare: function(a, b){
+    if(a < b) return -1;
+    if(a > b) return 1;
+    return 0;
+  },
+
   log: function(msg, level){
     console.log(msg)
   }
 
 }
 
-  function objEquiv (a, b) {
-    if (isUndefinedOrNull(a) || isUndefinedOrNull(b))
-      return false;
-    //equivalent values for every corresponding key, and
-    //~~~possibly expensive deep test
-    return true;
-  }

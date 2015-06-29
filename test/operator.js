@@ -46,6 +46,7 @@ describe("Operator", function(){
 
       expect( query.$regexp(/name/)('name2')).to.equal(true)
       expect( query.$regexp(/name/)('daame2')).to.equal(false)
+      expect( query.$regexp('name')('aname3ada')).to.equal(true)
 
     })
     it("$size should work", function(){
@@ -100,7 +101,7 @@ describe("Operator", function(){
     it('Logic $not should work as expect', function(){
        
       expect( query.$not({$gt: 1})(6) ).to.equal(false)
-      expect( query.$not([{$gt: 1}, {$lt: 4 }])(3) ).to.equal(true)
+      expect( query.$not(/name/)('danam') ).to.equal(true)
 
     })
 
@@ -161,6 +162,14 @@ describe("Operator", function(){
       expect( obj.children[1].name ).to.equal('lingdang')
 
     })
+
+    it("$assign allow custom assignment on matched doc", function(){
+      var obj = {name: 100, age:10, family: {mother: 'lily'}}
+      update.$assign({name: function(obj, key){
+        obj[key] = 1000
+      }})(obj)
+      expect(obj.name).to.equal(1000)
+    })
     it("$unset simple, depth, array", function(){
       var obj = {name: 100, age:10, family: {mother: 'lily'}}
       update.$unset({name: ''})(obj)
@@ -171,13 +180,131 @@ describe("Operator", function(){
     })
     it("$inc simple, depth, array", function(){
       var obj = {name: 100, age:10, family: {mother: 'lily'}}
-      update.$unset({name: ''})(obj)
-      expect( obj.name ).to.equal(undefined);
-      expect( obj.age ).to.equal( 10);
-      update.$unset({'family.mother': ''})(obj)
-      expect(obj.family.mother).to.equal(undefined);
+      update.$inc({name: 2})(obj)
+      expect( obj.name ).to.equal(102);
+      update.$inc({name: -100})(obj)
+      expect( obj.name ).to.equal(2);
     })
+    it("$mul simple, depth, array", function(){
+      var obj = {name: 100, age:10, family: {number: 1000}}
+      update.$mul({name: 10})(obj)
+      expect( obj.name ).to.equal(1000);
+      update.$mul({name: 0.1})(obj)
+      expect( obj.name ).to.equal(100);
+      update.$mul({'family.number': 0.1})(obj)
+      expect( obj.family.number ).to.equal(100);
+    })
+    it("$rename simple, depth, array", function(){
+      var obj = {name: 100, age:10, family: {mother: 'lily'}}
+      update.$rename({name: 'firstname'})(obj)
+      expect( obj.name ).to.equal(undefined);
+      expect( obj.firstname ).to.equal( 100);
+      update.$rename({'family.mother': 'father'})(obj)
+      expect(obj.family.mother).to.equal(undefined);
+      expect(obj.family.father).to.equal('lily');
+    })
+    it("$min, $max simple, depth, array", function(){
+      var obj = {name: 100, age:10, family: {mother: 'lily'}}
+      update.$min({name: 10})(obj)
+      expect( obj.name ).to.equal(10);
+      update.$min({name: 11})(obj)
+      expect( obj.age ).to.equal( 10);
+      update.$max({name: 9})(obj)
+      expect( obj.name ).to.equal(10);
+      update.$max({name: 11})(obj)
+      expect( obj.name ).to.equal(11);
+    })
+
+    // Array
+    // 
+
+    it("$pop should work", function(){
+      var obj = {list: [1,2,3,4], nest: {list: [1,2,3,4]}}
+      update.$pop({list: 1})(obj)
+      expect(obj.list).to.eql([1,2,3])
+      update.$pop({'nest.list': -1})(obj)
+      expect(obj.nest.list).to.eql([2,3,4])
+    })
+
+    it("$pull should splice item form list", function(){
+      
+      var obj = {list: [1,2,3,4]}
+      update.$pull({list: {$gt: 1, $lt: 3}})(obj)
+      expect(obj.list).to.eql([1,3,4])
+      var obj = {nest: {list: [1,2,3,4]} }
+      update.$pull({'nest.list': 3})(obj)
+      expect(obj.nest.list).to.eql([1,2,4])
+      var obj = {nest: {list: [{name:1},2,3,4]} }
+      update.$pull({'nest.list': {name:1}})(obj)
+      expect(obj.nest.list).to.eql([2,3,4])
+
+    })
+    it("$pullAll should splice item form list when match the listed values", function(){
+
+      var obj = {list: [1,2,3,4, 5,6,1,1,2]}
+      update.$pullAll({list: [1,2]})(obj)
+      expect(obj.list).to.eql([3,4,5,6])
+      var obj = {nest: {list: [1,2,3,4,3]} }
+      update.$pullAll({'nest.list': [3]})(obj)
+      expect(obj.nest.list).to.eql([1,2,4])
+
+      // @TODO
+      // var obj = {nest: {list: [{name:1},2,3,4]} }
+      // update.$pullAll({'nest.list': [{name:1}]})(obj)
+      // expect(obj.nest.list).to.eql([2,3,4]ort
+
+    })
+
+    it("$push should work", function(){
+      var obj = {list: [1,2,3,4], nest: {list: [1,2,3,4]}}
+      update.$push({list: 1})(obj);
+      expect(obj.list).to.eql([1,2,3,4,1]);
+      update.$push({'nest.list': -1})(obj);
+      expect(obj.nest.list).to.eql([1,2,3,4, -1]);
+    })
+    it("$push with each should work", function(){
+      var obj = {list: [1,2,3,4], nest: {list: [1,2,3,4]}}
+      update.$push({list: {$each: [2,3,4]}})(obj);
+      expect(obj.list).to.eql([1,2,3,4,2,3,4]);
+    })
+    it("$push with $slice should work", function(){
+      var obj = {list: [1,2,3,4], nest: {list: [1,2,3,4]}}
+      update.$push({list: {$slice: 1}})(obj);
+      expect(obj.list).to.eql([1]);
+    })
+
+    it("$push with $sort should work", function(){
+      // @todo
+      var obj = {list: [1,2,3,4], nest: {list: [1,2,3,4]}}
+      update.$push({list: {$sort: 1}})(obj);
+      expect(obj.list).to.eql([1,2,3,4]);
+      update.$push({list: {$sort: -1}})(obj);
+      expect(obj.list).to.eql([4,3,2,1]);
+
+      update.$push({list: {$sort: function(a, b){
+        if(b==1) return 1;
+        else return -1;
+      }}})(obj);
+      expect(obj.list).to.eql([1, 4,3,2]);
+    })
+    it("$push with $sort, $slice and $each", function(){
+      var obj = {list: [1,2,3,4], nest: {list: [1,2,3,4]}}
+      update.$push({list: {$sort: -1, $each: [5,6]}})(obj);
+      expect(obj.list).to.eql([6, 5, 4, 3, 2, 1]);
+    })
+
+
 
   })
 
 })
+
+
+
+
+
+
+
+
+
+

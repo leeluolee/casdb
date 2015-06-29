@@ -4,7 +4,7 @@
   "description": "An simple json&file based database , providing subset API of mongodb",
   "main": "index.js",
   "scripts": {
-    "test": "mocha test/*.js",
+    "test": "istanbul test node_modules/.bin/_mocha 'test/*.js'",
     "start": "mocha test/*.js"
   },
   "repository": {
@@ -27,6 +27,7 @@
     "async": "^1.0.0",
     "chalk": "^1.0.0",
     "expect.js": "^0.3.1",
+    "istanbul": "^0.3.17",
     "mocha": "^2.2.5"
   },
   "dependencies": {
